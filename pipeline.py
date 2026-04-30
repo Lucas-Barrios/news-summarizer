@@ -17,21 +17,22 @@ logger = logging.getLogger("news_summarizer.pipeline")
 
 def configure_logging(log_file=None):
     """Configure pipeline logging once."""
-    if logger.handlers:
+    base_logger = logging.getLogger("news_summarizer")
+    if base_logger.handlers:
         return
 
-    logger.setLevel(logging.INFO)
+    base_logger.setLevel(logging.INFO)
     formatter = logging.Formatter(
         "%(asctime)s %(levelname)s %(name)s - %(message)s"
     )
 
     stream_handler = logging.StreamHandler()
     stream_handler.setFormatter(formatter)
-    logger.addHandler(stream_handler)
 
     file_handler = logging.FileHandler(log_file or Config.PIPELINE_LOG_FILE)
     file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)
+    base_logger.addHandler(stream_handler)
+    base_logger.addHandler(file_handler)
 
 
 @dataclass

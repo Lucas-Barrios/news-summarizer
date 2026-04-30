@@ -1,10 +1,11 @@
 """FastAPI web interface for the news summarizer."""
 import asyncio
+from datetime import datetime, timezone
 import sqlite3
 from typing import Literal
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel, Field
 
 from config import Config
@@ -45,6 +46,31 @@ def index():
 def cache_stats():
     """Return cache statistics."""
     return get_cache_stats()
+
+
+@app.get("/api/digest/open/{digest_id}.gif")
+def track_digest_open(digest_id: str):
+    """Placeholder open-tracking pixel endpoint."""
+    try:
+        with sqlite3.connect(Config.CACHE_DB_PATH) as connection:
+            connection.execute(
+                """
+                UPDATE digest_sends
+                SET opened_at = ?
+                WHERE open_tracking_id = ?
+                """,
+                (datetime.now(timezone.utc).isoformat(), digest_id),
+            )
+    except sqlite3.Error:
+        pass
+
+    pixel = (
+        b"GIF89a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00"
+        b"\xff\xff\xff!\xf9\x04\x01\x00\x00\x00\x00,"
+        b"\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02"
+        b"D\x01\x00;"
+    )
+    return Response(content=pixel, media_type="image/gif")
 
 
 @app.post("/api/summarize")

@@ -36,6 +36,21 @@ class Config:
     SCHEDULE_ARTICLE_LIMIT = int(os.getenv("SCHEDULE_ARTICLE_LIMIT", "5"))
     SCHEDULE_INTERVAL_MINUTES = int(os.getenv("SCHEDULE_INTERVAL_MINUTES", "60"))
 
+    # Email Digest
+    DIGEST_FROM_EMAIL = os.getenv("DIGEST_FROM_EMAIL", "")
+    DIGEST_TO_EMAIL = os.getenv("DIGEST_TO_EMAIL", "")
+    DIGEST_MAX_ARTICLES = int(os.getenv("DIGEST_MAX_ARTICLES", "5"))
+    DIGEST_BASE_URL = os.getenv("DIGEST_BASE_URL", "http://localhost:8000")
+    DIGEST_LOCK_FILE = os.getenv("DIGEST_LOCK_FILE", "digest.lock")
+    DIGEST_SEND_HOUR_UTC = int(os.getenv("DIGEST_SEND_HOUR_UTC", "8"))
+    EMAIL_PROVIDER = os.getenv("EMAIL_PROVIDER", "smtp")
+    SMTP_HOST = os.getenv("SMTP_HOST", "")
+    SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+    SMTP_USERNAME = os.getenv("SMTP_USERNAME", "")
+    SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
+    SMTP_USE_TLS = os.getenv("SMTP_USE_TLS", "true").lower() == "true"
+    SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY", "")
+
     # Rate Limits (requests per minute)
     OPENAI_RPM = 500
     ANTHROPIC_RPM = 50

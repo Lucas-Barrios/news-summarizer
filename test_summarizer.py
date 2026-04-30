@@ -4,6 +4,8 @@ from unittest.mock import Mock, patch
 import pytest
 
 from news_api import NewsAPI
+from digest_builder import build_digest_subject, build_html_digest, rank_articles
+from digest_data import DigestStore
 from llm_providers import LLMProviders, CostTracker, count_tokens
 from pipeline import PipelineLockError, pipeline_lock
 from summarizer import NewsSummarizer, hash_article_text, normalize_article_text
@@ -210,6 +212,58 @@ class TestPipelineLock:
             assert lock_file.exists()
 
         assert not lock_file.exists()
+
+
+class TestEmailDigest:
+    """Test daily email digest helpers."""
+
+    def test_rank_articles_limits_by_latest_publish_date(self):
+        """Test digest ranking and truncation."""
+        articles = [
+            {"title": "Old", "published_at": "2026-01-01T00:00:00Z"},
+            {"title": "New", "published_at": "2026-01-02T00:00:00Z"},
+        ]
+
+        ranked = rank_articles(articles, limit=1)
+
+        assert ranked == [{"title": "New", "published_at": "2026-01-02T00:00:00Z"}]
+
+    def test_build_html_digest_escapes_article_content(self):
+        """Test the HTML digest is readable and escapes unsafe content."""
+        subject = build_digest_subject()
+        html = build_html_digest(
+            [
+                {
+                    "title": "<script>alert(1)</script>",
+                    "source": "Test Source",
+                    "published_at": "2026-01-01",
+                    "summary": "Summary",
+                    "sentiment": "Neutral",
+                    "url": "https://example.com",
+                }
+            ],
+            subject,
+        )
+
+        assert "Daily AI News" in html
+        assert "&lt;script&gt;" in html
+        assert "<script>alert(1)</script>" not in html
+
+    def test_digest_store_tracks_sent_digest(self, tmp_path):
+        """Test sent digest tracking prevents duplicate sends."""
+        store = DigestStore(db_path=tmp_path / "digest.sqlite3")
+
+        store.record_digest_attempt(
+            digest_id="digest-1",
+            recipient_email="user@example.com",
+            subject="Daily AI News",
+            article_count=2,
+            status="sent",
+            provider="smtp",
+            open_tracking_id="digest-1",
+        )
+
+        assert store.digest_already_sent("digest-1")
 
 
 # Run tests

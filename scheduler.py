@@ -5,9 +5,11 @@ import signal
 import sys
 
 from apscheduler.schedulers.blocking import BlockingScheduler
+from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
 from config import Config
+from digest_job import send_daily_digest
 from pipeline import configure_logging, run_pipeline
 
 
@@ -36,7 +38,24 @@ def scheduled_job(category=None, max_articles=None, async_processing=False):
     return result
 
 
-def build_scheduler(interval_minutes=None, category=None, max_articles=None):
+def scheduled_digest_job(provider=None):
+    """Scheduled job function that sends the daily email digest."""
+    result = send_daily_digest(provider=provider or Config.EMAIL_PROVIDER)
+
+    if result["status"] in {"success", "skipped"}:
+        logger.info("Digest job completed: %s", result)
+    else:
+        logger.error("Digest job completed with failures: %s", result)
+
+    return result
+
+
+def build_scheduler(
+    interval_minutes=None,
+    category=None,
+    max_articles=None,
+    include_digest=False,
+):
     """Build the APScheduler instance."""
     scheduler = BlockingScheduler(timezone="UTC")
     scheduler.add_job(
@@ -55,6 +74,18 @@ def build_scheduler(interval_minutes=None, category=None, max_articles=None):
             "async_processing": False,
         },
     )
+
+    if include_digest:
+        scheduler.add_job(
+            scheduled_digest_job,
+            trigger=CronTrigger(hour=Config.DIGEST_SEND_HOUR_UTC, minute=0),
+            id="daily_email_digest",
+            name="Daily email digest",
+            replace_existing=True,
+            max_instances=1,
+            coalesce=True,
+        )
+
     return scheduler
 
 
@@ -79,6 +110,16 @@ def main():
         default=Config.SCHEDULE_ARTICLE_LIMIT,
         help="Number of articles per run.",
     )
+    parser.add_argument(
+        "--include-digest",
+        action="store_true",
+        help="Also schedule the daily email digest.",
+    )
+    parser.add_argument(
+        "--run-digest-once",
+        action="store_true",
+        help="Send one daily digest and exit.",
+    )
     args = parser.parse_args()
 
     configure_logging()
@@ -91,10 +132,15 @@ def main():
         )
         sys.exit(0 if result.status == "success" else 1)
 
+    if args.run_digest_once:
+        result = scheduled_digest_job()
+        sys.exit(0 if result["status"] in {"success", "skipped"} else 1)
+
     scheduler = build_scheduler(
         interval_minutes=args.interval_minutes,
         category=args.category,
         max_articles=args.max_articles,
+        include_digest=args.include_digest,
     )
 
     def shutdown(signum, _frame):
