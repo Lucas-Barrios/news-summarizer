@@ -29,6 +29,7 @@ class Config:
 
     # Cost Control
     DAILY_BUDGET = float(os.getenv("DAILY_BUDGET", "5.00"))
+    CACHE_DB_PATH = os.getenv("CACHE_DB_PATH", "article_cache.sqlite3")
 
     # Rate Limits (requests per minute)
     OPENAI_RPM = 500

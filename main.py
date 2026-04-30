@@ -1,26 +1,71 @@
-from config import get_settings
-from llm_providers import OpenAISummarizer
-from news_api import NewsApiClient
-from summarizer import summarize_articles
+"""Main application entry point."""
+import asyncio
+import sys
+
+from summarizer import AsyncNewsSummarizer, NewsSummarizer
 
 
-def main() -> None:
-    settings = get_settings()
+def main():
+    """Run the news summarizer."""
+    print("=" * 80)
+    print("NEWS SUMMARIZER - Multi-Provider Edition")
+    print("=" * 80)
 
-    news_client = NewsApiClient(settings.news_api_key)
-    llm_provider = OpenAISummarizer(settings.openai_api_key)
-
-    articles = news_client.fetch_articles(
-        query=settings.default_news_query,
-        language=settings.default_language,
-        page_size=settings.default_page_size,
+    # Get user input
+    category = (
+        input("\nEnter news category (technology/business/health/general): ").strip()
+        or "technology"
     )
-    summaries = summarize_articles(articles, llm_provider)
+    num_articles = input("How many articles to process? (1-10): ").strip()
 
-    for item in summaries:
-        print(f"\n{item['title']}")
-        print(item["url"])
-        print(item["summary"])
+    try:
+        num_articles = int(num_articles)
+        num_articles = max(1, min(10, num_articles))  # Clamp between 1 and 10
+    except Exception:
+        num_articles = 3
+
+    use_async = input("Use async processing? (y/n): ").strip().lower() == "y"
+
+    print(f"\nFetching {num_articles} articles from category: {category}")
+
+    try:
+        if use_async:
+            # Use async version
+            summarizer = AsyncNewsSummarizer()
+            articles = summarizer.news_api.fetch_top_headlines(
+                category=category,
+                max_articles=num_articles,
+            )
+
+            if articles:
+                print(f"\nProcessing {len(articles)} articles concurrently...")
+                results = asyncio.run(
+                    summarizer.process_articles_async(articles, max_concurrent=3)
+                )
+                summarizer.generate_report(results)
+
+        else:
+            # Use synchronous version
+            summarizer = NewsSummarizer()
+            articles = summarizer.news_api.fetch_top_headlines(
+                category=category,
+                max_articles=num_articles,
+            )
+
+            if articles:
+                print(f"\nProcessing {len(articles)} articles...")
+                results = summarizer.process_articles(articles)
+                summarizer.generate_report(results)
+
+        print("\n✓ Processing complete!")
+
+    except KeyboardInterrupt:
+        print("\n\nOperation cancelled by user.")
+        sys.exit(0)
+
+    except Exception as e:
+        print(f"\n✗ Error: {e}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
