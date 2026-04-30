@@ -30,6 +30,11 @@ class Config:
     # Cost Control
     DAILY_BUDGET = float(os.getenv("DAILY_BUDGET", "5.00"))
     CACHE_DB_PATH = os.getenv("CACHE_DB_PATH", "article_cache.sqlite3")
+    PIPELINE_LOCK_FILE = os.getenv("PIPELINE_LOCK_FILE", "pipeline.lock")
+    PIPELINE_LOG_FILE = os.getenv("PIPELINE_LOG_FILE", "pipeline.log")
+    SCHEDULE_CATEGORY = os.getenv("SCHEDULE_CATEGORY", "technology")
+    SCHEDULE_ARTICLE_LIMIT = int(os.getenv("SCHEDULE_ARTICLE_LIMIT", "5"))
+    SCHEDULE_INTERVAL_MINUTES = int(os.getenv("SCHEDULE_INTERVAL_MINUTES", "60"))
 
     # Rate Limits (requests per minute)
     OPENAI_RPM = 500

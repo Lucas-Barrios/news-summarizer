@@ -5,6 +5,7 @@ import pytest
 
 from news_api import NewsAPI
 from llm_providers import LLMProviders, CostTracker, count_tokens
+from pipeline import PipelineLockError, pipeline_lock
 from summarizer import NewsSummarizer, hash_article_text, normalize_article_text
 
 
@@ -187,6 +188,28 @@ class TestNewsSummarizer:
         assert first_result == second_result
         assert mock_openai.call_count == 1
         assert mock_anthropic.call_count == 1
+
+
+class TestPipelineLock:
+    """Test scheduled-run lock behavior."""
+
+    def test_pipeline_lock_prevents_duplicate_runs(self, tmp_path):
+        """Test a second lock cannot be acquired while the first is active."""
+        lock_file = tmp_path / "pipeline.lock"
+
+        with pipeline_lock(lock_file=lock_file):
+            with pytest.raises(PipelineLockError):
+                with pipeline_lock(lock_file=lock_file):
+                    pass
+
+    def test_pipeline_lock_removes_lock_file(self, tmp_path):
+        """Test the lock file is cleaned up after a run."""
+        lock_file = tmp_path / "pipeline.lock"
+
+        with pipeline_lock(lock_file=lock_file):
+            assert lock_file.exists()
+
+        assert not lock_file.exists()
 
 
 # Run tests

@@ -8,7 +8,7 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
 from config import Config
-from summarizer import AsyncNewsSummarizer, NewsSummarizer
+from pipeline import run_pipeline
 
 
 app = FastAPI(title="News Summarizer", version="1.0.0")
@@ -35,34 +35,6 @@ def get_cache_stats():
     return {"cached_articles": count}
 
 
-def run_sync_summary(payload: SummarizeRequest):
-    """Fetch and summarize articles synchronously."""
-    summarizer = NewsSummarizer()
-    articles = summarizer.news_api.fetch_top_headlines(
-        category=payload.category,
-        max_articles=payload.num_articles,
-    )
-    results = summarizer.process_articles(articles) if articles else []
-
-    return summarizer, articles, results
-
-
-async def run_async_summary(payload: SummarizeRequest):
-    """Fetch and summarize articles with the async wrapper."""
-    summarizer = AsyncNewsSummarizer()
-    articles = summarizer.news_api.fetch_top_headlines(
-        category=payload.category,
-        max_articles=payload.num_articles,
-    )
-    results = (
-        await summarizer.process_articles_async(articles, max_concurrent=3)
-        if articles
-        else []
-    )
-
-    return summarizer, articles, results
-
-
 @app.get("/", response_class=HTMLResponse)
 def index():
     """Render the web interface."""
@@ -79,25 +51,29 @@ def cache_stats():
 async def summarize(payload: SummarizeRequest):
     """Fetch, summarize, and analyze news articles."""
     try:
-        if payload.async_processing:
-            summarizer, articles, results = await run_async_summary(payload)
-        else:
-            summarizer, articles, results = await asyncio.to_thread(
-                run_sync_summary, payload
-            )
+        run_result = await asyncio.to_thread(
+            run_pipeline,
+            category=payload.category,
+            max_articles=payload.num_articles,
+            async_processing=payload.async_processing,
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
-    cost_summary = summarizer.llm_providers.cost_tracker.get_summary()
+    if run_result.status == "failed":
+        raise HTTPException(status_code=500, detail=run_result.error)
+
+    if run_result.status == "skipped":
+        raise HTTPException(status_code=409, detail=run_result.error)
 
     return {
-        "category": payload.category,
-        "requested_articles": payload.num_articles,
-        "fetched_articles": len(articles),
-        "processed_articles": len(results),
-        "async_processing": payload.async_processing,
-        "results": results,
-        "cost_summary": cost_summary,
+        "category": run_result.category,
+        "requested_articles": run_result.requested_articles,
+        "fetched_articles": run_result.fetched_articles,
+        "processed_articles": run_result.processed_articles,
+        "async_processing": run_result.async_processing,
+        "results": run_result.results,
+        "cost_summary": run_result.cost_summary,
         "cache": get_cache_stats(),
     }
 

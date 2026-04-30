@@ -4,5 +4,6 @@ __pycache__/
 *.pyc
 *.pyo
 *.log
+*.lock
 *.sqlite3
 .pytest_cache/
