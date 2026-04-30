@@ -52,7 +52,8 @@ def build_html_digest(articles, subject, tracking_pixel_url=None):
                 <p style="margin: 0 0 12px; color: #334155; line-height: 1.55;">
                   {summary}
                 </p>
-                <div style="margin: 0 0 14px; padding: 12px; background: #f0f4f8; border-radius: 8px; color: #334155; line-height: 1.5;">
+                <div style="margin: 0 0 14px; padding: 12px; background: #f0f4f8;
+                  border-radius: 8px; color: #334155; line-height: 1.5;">
                   <strong>Sentiment:</strong> {sentiment}
                 </div>
                 <a href="{url}" style="color: #0f766e; font-weight: 700;">Read source</a>
@@ -72,13 +73,17 @@ def build_html_digest(articles, subject, tracking_pixel_url=None):
     <!doctype html>
     <html>
       <body style="margin: 0; background: #f6f7f9; font-family: Arial, sans-serif;">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background: #f6f7f9; padding: 28px 12px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0"
+          style="background: #f6f7f9; padding: 28px 12px;">
           <tr>
             <td align="center">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 720px; background: #ffffff; border: 1px solid #d9e0e8; border-radius: 8px; padding: 30px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0"
+                style="max-width: 720px; background: #ffffff; border: 1px solid #d9e0e8;
+                border-radius: 8px; padding: 30px;">
                 <tr>
                   <td>
-                    <div style="font-size: 13px; color: #0f766e; font-weight: 700; margin-bottom: 8px;">
+                    <div style="font-size: 13px; color: #0f766e; font-weight: 700;
+                      margin-bottom: 8px;">
                       News Summarizer
                     </div>
                     <h1 style="margin: 0 0 8px; font-size: 26px; color: #17202a;">

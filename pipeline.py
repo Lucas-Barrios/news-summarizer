@@ -9,6 +9,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 
 from config import Config
+from analytics import AnalyticsStore
 from summarizer import AsyncNewsSummarizer, NewsSummarizer
 
 
@@ -163,6 +164,10 @@ def run_pipeline(
             else:
                 summarizer, articles, results = _run_sync(category, max_articles)
 
+            analytics_summary = AnalyticsStore().extract_and_store_topics(
+                since_hours=24,
+                category=category,
+            )
             cost_summary = summarizer.llm_providers.cost_tracker.get_summary()
             duration = time.monotonic() - started
             finished_at = datetime.now(timezone.utc).isoformat()
@@ -182,9 +187,10 @@ def run_pipeline(
             )
 
             logger.info(
-                "Pipeline completed fetched=%s processed=%s cost=%.6f duration=%.3fs",
+                "Pipeline completed fetched=%s processed=%s topics=%s cost=%.6f duration=%.3fs",
                 run_result.fetched_articles,
                 run_result.processed_articles,
+                analytics_summary["topics_stored"],
                 cost_summary.get("total_cost", 0.0),
                 duration,
             )

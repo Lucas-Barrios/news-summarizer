@@ -9,6 +9,7 @@ from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel, Field
 
 from config import Config
+from analytics import AnalyticsStore
 from pipeline import run_pipeline
 
 
@@ -46,6 +47,47 @@ def index():
 def cache_stats():
     """Return cache statistics."""
     return get_cache_stats()
+
+
+@app.post("/api/analytics/extract-topics")
+async def extract_topics(window_hours: int = 24, category: str | None = None):
+    """Extract and store topics for recent processed articles."""
+    try:
+        result = await asyncio.to_thread(
+            AnalyticsStore().extract_and_store_topics,
+            since_hours=window_hours,
+            category=category,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+    return result
+
+
+@app.get("/api/analytics/trending-topics")
+def trending_topics(
+    window_hours: int = 24,
+    limit: int = 10,
+    source: str | None = None,
+    category: str | None = None,
+):
+    """Return charts-ready trending topic analytics."""
+    if window_hours not in {24, 168, 720}:
+        raise HTTPException(
+            status_code=400,
+            detail="window_hours must be one of 24, 168, or 720",
+        )
+
+    limit = max(1, min(50, limit))
+    try:
+        return AnalyticsStore().calculate_trending_topics(
+            window_hours=window_hours,
+            limit=limit,
+            source=source,
+            category=category,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.get("/api/digest/open/{digest_id}.gif")
@@ -568,7 +610,9 @@ INDEX_HTML = """
 
       <div class="status" id="status">Ready.</div>
       <section class="results" id="results">
-        <div class="empty-state">Choose a category and process articles to populate the report.</div>
+        <div class="empty-state">
+          Choose a category and process articles to populate the report.
+        </div>
       </section>
     </main>
   </div>
@@ -669,7 +713,8 @@ INDEX_HTML = """
 
         updateMetrics(data);
         renderResults(data.results || []);
-        statusEl.textContent = `Fetched ${data.fetched_articles} article(s), processed ${data.processed_articles}.`;
+        statusEl.textContent =
+          `Fetched ${data.fetched_articles} article(s), processed ${data.processed_articles}.`;
       } catch (error) {
         statusEl.className = "status error";
         statusEl.textContent = error.message;

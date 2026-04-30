@@ -1,8 +1,10 @@
 """Unit tests for news summarizer."""
 from unittest.mock import Mock, patch
+from datetime import datetime, timezone
 
 import pytest
 
+from analytics import AnalyticsStore, extract_named_entities, extract_topics, normalize_topic
 from news_api import NewsAPI
 from digest_builder import build_digest_subject, build_html_digest, rank_articles
 from digest_data import DigestStore
@@ -264,6 +266,100 @@ class TestEmailDigest:
         )
 
         assert store.digest_already_sent("digest-1")
+
+
+class TestAnalytics:
+    """Test topic extraction and trend analytics."""
+
+    def test_normalize_topic(self):
+        """Test stable topic normalization."""
+        assert normalize_topic("  OpenAI, Inc.! ") == "openai inc"
+
+    def test_extract_named_entities(self):
+        """Test MVP named entity extraction."""
+        entities = extract_named_entities("Apple and OpenAI announced Vision Pro news.")
+
+        assert "apple" in entities
+        assert "openai" in entities
+        assert "vision pro" in entities
+
+    def test_extract_topics_includes_keywords_and_entities(self):
+        """Test local topic extraction from article content."""
+        article = {
+            "title": "OpenAI Launches New AI Product",
+            "summary": "OpenAI released an artificial intelligence product for developers.",
+            "sentiment": "Positive",
+            "normalized_text": "AI product launch for software developers.",
+        }
+
+        topics = extract_topics(article)
+        topic_names = {topic["topic"] for topic in topics}
+
+        assert "openai" in topic_names
+        assert "product" in topic_names or "developers" in topic_names
+
+    def test_analytics_store_calculates_trends_with_deduplication(self, tmp_path):
+        """Test storage and trend scoring avoid near-duplicate article counting."""
+        db_path = tmp_path / "analytics.sqlite3"
+        store = AnalyticsStore(db_path=db_path)
+        now = datetime.now(timezone.utc).isoformat()
+        articles = [
+            {
+                "article_hash": "hash-1",
+                "normalized_text": "Title: OpenAI AI chips Summary: OpenAI builds chips",
+                "title": "OpenAI Builds AI Chips",
+                "source": "Source A",
+                "url": "https://example.com/1",
+                "published_at": now,
+                "summary": "OpenAI is building AI chips.",
+                "sentiment": "Neutral",
+                "updated_at": now,
+            },
+            {
+                "article_hash": "hash-2",
+                "normalized_text": "Title: OpenAI AI chips Summary: OpenAI builds chips",
+                "title": "OpenAI Builds AI Chips",
+                "source": "Source A",
+                "url": "https://example.com/2",
+                "published_at": now,
+                "summary": "OpenAI is building AI chips.",
+                "sentiment": "Neutral",
+                "updated_at": now,
+            },
+            {
+                "article_hash": "hash-3",
+                "normalized_text": (
+                    "Title: OpenAI data centers Summary: "
+                    "OpenAI expands infrastructure"
+                ),
+                "title": "OpenAI Expands Data Centers",
+                "source": "Source B",
+                "url": "https://example.com/3",
+                "published_at": now,
+                "summary": "OpenAI expands infrastructure.",
+                "sentiment": "Neutral",
+                "updated_at": now,
+            },
+        ]
+
+        for article in articles:
+            store.store_article_topics(
+                article,
+                [{"topic": "openai", "type": "entity", "weight": 1.4}],
+                category="technology",
+            )
+
+        trends = store.calculate_trending_topics(
+            window_hours=24,
+            limit=5,
+            category="technology",
+        )
+        openai_trend = trends["topics"][0]
+
+        assert openai_trend["topic"] == "openai"
+        assert openai_trend["article_count"] == 2
+        assert openai_trend["source_count"] == 2
+        assert trends["chart"]["labels"] == ["openai"]
 
 
 # Run tests
