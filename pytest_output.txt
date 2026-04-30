@@ -1,0 +1,28 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.13.9, pytest-8.4.2, pluggy-1.5.0 -- /opt/anaconda3/bin/python
+cachedir: .pytest_cache
+rootdir: /Users/lucas/Desktop/Ironhack_labs/news-summarizer
+plugins: anyio-4.10.0
+collecting ... collected 19 items
+
+test_summarizer.py::TestCostTracker::test_track_request PASSED           [  5%]
+test_summarizer.py::TestCostTracker::test_get_summary PASSED             [ 10%]
+test_summarizer.py::TestCostTracker::test_budget_check PASSED            [ 15%]
+test_summarizer.py::TestTokenCounting::test_count_tokens PASSED          [ 21%]
+test_summarizer.py::TestNewsAPI::test_fetch_top_headlines PASSED         [ 26%]
+test_summarizer.py::TestLLMProviders::test_ask_openai PASSED             [ 31%]
+test_summarizer.py::TestNewsSummarizer::test_initialization PASSED       [ 36%]
+test_summarizer.py::TestNewsSummarizer::test_summarize_article PASSED    [ 42%]
+test_summarizer.py::TestNewsSummarizer::test_article_hash_normalizes_whitespace PASSED [ 47%]
+test_summarizer.py::TestNewsSummarizer::test_summarize_article_uses_cache PASSED [ 52%]
+test_summarizer.py::TestPipelineLock::test_pipeline_lock_prevents_duplicate_runs PASSED [ 57%]
+test_summarizer.py::TestPipelineLock::test_pipeline_lock_removes_lock_file PASSED [ 63%]
+test_summarizer.py::TestEmailDigest::test_rank_articles_limits_by_latest_publish_date PASSED [ 68%]
+test_summarizer.py::TestEmailDigest::test_build_html_digest_escapes_article_content PASSED [ 73%]
+test_summarizer.py::TestEmailDigest::test_digest_store_tracks_sent_digest PASSED [ 78%]
+test_summarizer.py::TestAnalytics::test_normalize_topic PASSED           [ 84%]
+test_summarizer.py::TestAnalytics::test_extract_named_entities PASSED    [ 89%]
+test_summarizer.py::TestAnalytics::test_extract_topics_includes_keywords_and_entities PASSED [ 94%]
+test_summarizer.py::TestAnalytics::test_analytics_store_calculates_trends_with_deduplication PASSED [100%]
+
+============================== 19 passed in 0.67s ==============================
