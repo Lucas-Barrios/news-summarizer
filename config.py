@@ -25,7 +25,7 @@ class Config:
 
     # Models
     OPENAI_MODEL = "gpt-4o-mini"
-    ANTHROPIC_MODEL = "claude-3-5-sonnet-20241022"
+    ANTHROPIC_MODEL = "claude-sonnet-4-20250514"
 
     # Cost Control
     DAILY_BUDGET = float(os.getenv("DAILY_BUDGET", "5.00"))
