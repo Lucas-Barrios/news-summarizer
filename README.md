@@ -5,6 +5,25 @@ OpenAI, analyzes sentiment with Anthropic, caches processed articles in SQLite,
 serves a FastAPI web UI, supports scheduled runs, sends daily email digests, and
 calculates trending topics.
 
+## What This Project Does
+
+This project is an end-to-end news intelligence pipeline. It pulls current news
+articles from NewsAPI, turns each article into a concise LLM-generated summary,
+adds sentiment analysis, stores the processed result locally, and exposes the
+output through a CLI, a FastAPI web app, scheduled jobs, email digests, and
+analytics endpoints.
+
+The main workflow is:
+
+```text
+NewsAPI -> article normalization -> SQLite cache lookup -> OpenAI summary
+        -> Anthropic sentiment -> SQLite storage -> reports/API/digest/analytics
+```
+
+The cache is part of the core design. Repeated articles are detected with a
+deterministic hash of normalized article text, so reruns and scheduled jobs avoid
+paying for duplicate LLM work.
+
 ## Features
 
 - Fetches top headlines from NewsAPI.
@@ -210,7 +229,7 @@ Trending topics response excerpt:
 }
 ```
 
-## Cost Notes
+## Cost Analysis
 
 The project estimates LLM spend with per-million-token pricing in
 `llm_providers.py`.
@@ -227,6 +246,28 @@ Cost controls:
 - SQLite caching avoids repeated LLM calls for identical normalized article text.
 - Scheduled runs reuse the same cache, so repeated articles are not reprocessed.
 - Digest and analytics read from cached summaries and do not call LLMs.
+
+Example from a small two-article run:
+
+```text
+Total requests: 4
+Total cost: $0.0039
+Total tokens: 701
+Average cost per request: $0.000987
+```
+
+Cost grows mainly with:
+
+- number of articles processed
+- article text length included in prompts
+- OpenAI/Anthropic model choice
+- whether articles are already cached
+- scheduled run frequency
+
+For local development, process one to three articles at a time. For production,
+set a conservative `DAILY_BUDGET`, monitor `pipeline.log`, and keep cheaper
+models for high-volume summarization unless quality requirements justify more
+expensive models.
 
 API pricing changes over time. Update the `PRICING` dictionary when provider
 pricing changes.
@@ -297,3 +338,43 @@ digest.lock               # Digest duplicate-run lock; ignored by Git
 - Ship logs to CloudWatch, Datadog, Grafana Loki, or similar.
 - Move SQLite to Supabase/Postgres when running multiple app instances.
 - Move file locks to Postgres advisory locks or Redis for distributed deployments.
+
+## Future Deployment And Migration Considerations
+
+The current architecture is intentionally simple and works well for local
+development or a single cloud VM:
+
+- SQLite stores cached articles, topics, subscribers, and digest send history.
+- File locks prevent overlapping pipeline or digest jobs on one machine.
+- APScheduler, cron, or systemd timers can trigger scheduled work.
+- FastAPI serves the web UI and JSON API.
+
+For a production deployment, migrate incrementally:
+
+1. Single VM:
+   - Run `uvicorn` behind Nginx or Caddy.
+   - Use `systemd` services/timers for the web app and scheduled jobs.
+   - Store `.env` values in a VM secret store or locked-down environment file.
+   - Back up `article_cache.sqlite3` regularly.
+
+2. Managed database:
+   - Move `processed_articles`, `article_topics`, `subscribers`, and
+     `digest_sends` from SQLite to Supabase/Postgres.
+   - Keep `article_hash` as a unique key for cache/idempotency.
+   - Add indexes for `updated_at`, `topic`, `source`, and `category`.
+
+3. Distributed jobs:
+   - Replace file locks with Postgres advisory locks or Redis locks.
+   - Move long-running work to Celery/RQ when multiple workers or retries are
+     needed.
+   - Keep FastAPI focused on HTTP requests and enqueue background tasks instead
+     of running them directly.
+
+4. Observability:
+   - Centralize logs.
+   - Alert on failed scheduled runs and daily budget threshold breaches.
+   - Track LLM spend, cache hit rate, digest sends, and API failures.
+
+The existing module boundaries are designed for this migration: replace the data
+layer first, then the scheduler/queue, without rewriting summarization,
+digest-building, or analytics logic.
